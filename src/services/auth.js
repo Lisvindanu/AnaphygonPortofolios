@@ -1,7 +1,8 @@
 // src/services/auth.js
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Use the public domain for all requests
+const API_URL = 'https://api.vinmedia.my.id/api';
 
 // Login user
 export const login = async (username, password) => {

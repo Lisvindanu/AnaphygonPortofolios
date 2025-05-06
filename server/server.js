@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path'); // Tambahkan ini
+const path = require('path');
 const authRoutes = require('./routes/auth.routes');
 const projectsRoutes = require('./routes/projects.routes');
 const skillsRoutes = require('./routes/skills.routes');
@@ -11,18 +11,27 @@ const contentRoutes = require('./routes/content.routes');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
-const PORT = process.env.SERVER_PORT || 5000; // Ganti ke SERVER_PORT
+const PORT = process.env.SERVER_PORT || 5000;
 
-// Middleware
+// Better CORS configuration
 app.use(cors({
-  origin: '*', // Mengizinkan semua origin
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: ['https://portofolio.vinmedia.my.id', 'http://portofolio.vinmedia.my.id', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads')); // Jika ada folder uploads
+app.use('/uploads', express.static('uploads'));
+
+// Simple health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
