@@ -21,7 +21,7 @@ const Footer = () => {
             <Link to="/" className="inline-block mb-4">
               <h2 className="text-2xl font-bold text-gradient">Anaphygon<span className="text-accent"> Website's</span></h2>
             </Link>
-            <p className="text-gray-300 mb-6">Creating futuristic digital experiences through innovative design and cutting-edge technology.</p>
+            <p className="text-gray-300 mb-6">Just want to learn somethin new.</p>
             <div className="flex space-x-4">
               {socialLinks.map((link) => (
                 <motion.a
