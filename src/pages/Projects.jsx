@@ -5,7 +5,7 @@ import { getAllProjects } from '../services/api';
 import Card from '../components/common/Card';
 import Background from '../components/three/Background';
 import { Link } from 'react-router-dom';
-import { getImageUrl, handleImageError } from '../../utils/imageHelper'; // Import dari helper
+import { getImageUrl, handleImageError } from '../utils/imageHelper'; // <-- PERBAIKAN DI SINI
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
@@ -130,7 +130,7 @@ const Projects = () => {
                             onError={handleImageError}
                         />
 
-                        {project.featured === 1 && (
+                        {project.featured && (
                             <div className="absolute top-4 right-4 bg-accent text-primary text-xs font-bold px-2 py-1 rounded-full">
                               Featured
                             </div>

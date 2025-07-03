@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Background from '../components/three/Background';
 import { getProjectById } from '../services/api';
-import { getImageUrl, handleImageError } from '../../utils/imageHelper'; // Import dari helper
+import { getImageUrl, handleImageError } from '../utils/imageHelper';// Import dari helper
 
 const ProjectDetail = () => {
   const { id } = useParams();
