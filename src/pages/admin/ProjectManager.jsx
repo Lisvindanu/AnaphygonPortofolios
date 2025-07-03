@@ -1,9 +1,19 @@
-// src/pages/admin/ProjectManager.jsx - Complete Implementation
+// src/pages/admin/ProjectManager.jsx - Final Fix
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllProjects, createProject, updateProject, deleteProject } from '../../services/api';
 import ImageUpload from '../../components/common/ImageUpload';
 import { motion } from 'framer-motion';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+const getImageUrl = (path) => {
+  if (!path) return 'https://via.placeholder.com/600x400';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:')) {
+    return path;
+  }
+  return `${API_URL}${path}`;
+};
 
 const ProjectManager = () => {
   const { currentUser } = useAuth();
@@ -54,64 +64,25 @@ const ProjectManager = () => {
     });
   };
 
-  const handleThumbnailSelect = async (file) => {
+  const handleThumbnailSelect = (file) => {
     if (file) {
       setSelectedThumbnail(file);
-      // Create preview URL for immediate display
       const previewUrl = URL.createObjectURL(file);
-      setFormData({
-        ...formData,
-        thumbnail: previewUrl
-      });
+      setFormData({ ...formData, thumbnail: previewUrl });
     } else {
       setSelectedThumbnail(null);
-      setFormData({
-        ...formData,
-        thumbnail: ''
-      });
+      setFormData({ ...formData, thumbnail: '' });
     }
   };
 
-  const handleImagesSelect = async (files) => {
+  const handleImagesSelect = (files) => {
     if (files && files.length > 0) {
       setSelectedImages(files);
-      // Create preview URLs
       const previewUrls = files.map(file => URL.createObjectURL(file));
-      setFormData({
-        ...formData,
-        images: previewUrls.join(',')
-      });
+      setFormData({ ...formData, images: previewUrls.join(',') });
     } else {
       setSelectedImages([]);
-      setFormData({
-        ...formData,
-        images: ''
-      });
-    }
-  };
-
-  const uploadFile = async (file, type = 'image') => {
-    const formData = new FormData();
-    formData.append(type, file);
-
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      return data.filePath;
-    } catch (error) {
-      console.error('Upload error:', error);
-      throw error;
+      setFormData({ ...formData, images: '' });
     }
   };
 
@@ -125,42 +96,31 @@ const ProjectManager = () => {
     setIsLoading(true);
     setError(null);
 
+    const submissionData = new FormData();
+    Object.keys(formData).forEach(key => {
+      if (key !== 'thumbnail' && key !== 'images') {
+        submissionData.append(key, formData[key]);
+      }
+    });
+
+    if (selectedThumbnail) {
+      submissionData.append('thumbnail', selectedThumbnail);
+    }
+
+    if (selectedImages.length > 0) {
+      selectedImages.forEach(file => {
+        submissionData.append('images', file);
+      });
+    }
+
     try {
-      let finalFormData = { ...formData };
-
-      // Upload thumbnail if selected
-      if (selectedThumbnail) {
-        try {
-          const thumbnailPath = await uploadFile(selectedThumbnail, 'thumbnail');
-          finalFormData.thumbnail = thumbnailPath;
-        } catch (error) {
-          setError('Failed to upload thumbnail. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Upload additional images if selected
-      if (selectedImages.length > 0) {
-        try {
-          const imagePaths = [];
-          for (let file of selectedImages) {
-            const imagePath = await uploadFile(file, 'image');
-            imagePaths.push(imagePath);
-          }
-          finalFormData.images = imagePaths.join(',');
-        } catch (error) {
-          setError('Failed to upload images. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-      }
-
       if (editProject) {
-        await updateProject(editProject.id, finalFormData);
+        // Untuk update, kita tidak mengirim ulang gambar lama, hanya yang baru
+        // Backend akan menangani untuk tidak menimpa jika tidak ada file baru
+        await updateProject(editProject.id, submissionData);
         showSuccessMessage('Project updated successfully!');
       } else {
-        await createProject(finalFormData);
+        await createProject(submissionData);
         showSuccessMessage('New project added successfully!');
       }
 
@@ -168,7 +128,7 @@ const ProjectManager = () => {
       resetForm();
     } catch (error) {
       console.error('Error saving project:', error);
-      setError('Failed to save project. Please try again.');
+      setError(error.message || 'Failed to save project. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -176,15 +136,8 @@ const ProjectManager = () => {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      description: '',
-      thumbnail: '',
-      images: '',
-      tags: '',
-      url: '',
-      github_url: '',
-      featured: false,
-      order_index: 0
+      title: '', description: '', thumbnail: '', images: '',
+      tags: '', url: '', github_url: '', featured: false, order_index: 0
     });
     setSelectedThumbnail(null);
     setSelectedImages([]);
@@ -205,15 +158,9 @@ const ProjectManager = () => {
       featured: project.featured === 1,
       order_index: project.order_index
     });
-
-    // Clear selected files when editing (use existing URLs)
     setSelectedThumbnail(null);
     setSelectedImages([]);
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id, title) => {
@@ -344,20 +291,10 @@ const ProjectManager = () => {
                 <ImageUpload
                     label="Project Thumbnail"
                     onImageSelect={handleThumbnailSelect}
-                    currentImage={formData.thumbnail}
+                    currentImage={getImageUrl(formData.thumbnail)}
                     acceptMultiple={false}
                     className="mb-4"
                 />
-                {!selectedThumbnail && formData.thumbnail && (
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-400 mb-2">Current thumbnail:</p>
-                      <img
-                          src={formData.thumbnail}
-                          alt="Current thumbnail"
-                          className="max-w-32 max-h-32 rounded-md object-cover"
-                      />
-                    </div>
-                )}
               </div>
 
               {/* Additional Images Upload */}
@@ -369,14 +306,14 @@ const ProjectManager = () => {
                     maxFiles={5}
                     className="mb-4"
                 />
-                {!selectedImages.length && formData.images && (
+                {formData.images && !selectedImages.length && (
                     <div className="mt-2">
                       <p className="text-sm text-gray-400 mb-2">Current images:</p>
                       <div className="flex flex-wrap gap-2">
                         {formData.images.split(',').filter(Boolean).map((img, index) => (
                             <img
                                 key={index}
-                                src={img.trim()}
+                                src={getImageUrl(img.trim())}
                                 alt={`Project image ${index + 1}`}
                                 className="w-20 h-20 rounded-md object-cover"
                             />
@@ -502,7 +439,7 @@ const ProjectManager = () => {
                         {project.thumbnail && (
                             <div className="aspect-video overflow-hidden">
                               <img
-                                  src={project.thumbnail}
+                                  src={getImageUrl(project.thumbnail)}
                                   alt={project.title}
                                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                               />

@@ -1,19 +1,19 @@
 // src/components/common/PDFPreviewModal.jsx
-import React, { useState } from 'react';
+
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Document, Page, pdfjs } from 'react-pdf';
 
+// Import dari pustaka baru
+import { Viewer } from '@react-pdf-viewer/core';
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 
-// Konfigurasi worker untuk react-pdf
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Import CSS yang dibutuhkan oleh pustaka baru
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 const PDFPreviewModal = ({ pdfUrl, onClose }) => {
-    const [numPages, setNumPages] = useState(null);
-
-    function onDocumentLoadSuccess({ numPages: nextNumPages }) {
-        setNumPages(nextNumPages);
-    }
+    // Buat instance dari plugin layout
+    const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
     if (!pdfUrl) return null;
 
@@ -48,25 +48,14 @@ const PDFPreviewModal = ({ pdfUrl, onClose }) => {
                             </svg>
                         </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4">
-                        <Document
-                            file={pdfUrl}
-                            onLoadSuccess={onDocumentLoadSuccess}
-                            loading={<div className="text-white text-center p-4">Loading PDF...</div>}
-                            error={<div className="text-red-400 text-center p-4">Failed to load PDF file.</div>}
-                        >
-                            {Array.from(new Array(numPages || 0), (el, index) => (
-                                <Page
-                                    key={`page_${index + 1}`}
-                                    pageNumber={index + 1}
-                                    renderTextLayer={false}      // Layer ini sudah dinonaktifkan
-                                    renderAnnotationLayer={false} // Layer ini juga sudah dinonaktifkan
-                                    width={800}
-                                    className="mb-4"
-                                />
-                            ))}
-                        </Document>
+
+                    <div className="flex-1 overflow-y-auto">
+                        <Viewer
+                            fileUrl={pdfUrl}
+                            plugins={[defaultLayoutPluginInstance]}
+                        />
                     </div>
+
                 </motion.div>
             </motion.div>
         </AnimatePresence>

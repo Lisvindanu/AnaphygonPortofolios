@@ -107,8 +107,8 @@ const Contact = ({ content = [] }) => {
                   </div>
                   <div>
                     <h3 className="font-bold">Email</h3>
-                    <a href="mailto:Anaphygon@protonmail.com" className="text-accent hover:underline">
-                      Anaphygon@protonmail.com
+                    <a href="mailto:Lisvindanu015@gmail.com" className="text-accent hover:underline">
+                      Lisvindanu015@gmail.com
                     </a>
                   </div>
                 </div>

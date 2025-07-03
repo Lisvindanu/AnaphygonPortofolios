@@ -1,7 +1,7 @@
 // server/middleware/upload.middleware.js
 const multer = require('multer');
 const path = require('path');
-const fs =require('fs');
+const fs = require('fs');
 
 const uploadDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -35,7 +35,5 @@ const upload = multer({
   }
 });
 
-module.exports = {
-  uploadSingle: (fieldName) => upload.single(fieldName),
-  uploadMultiple: (fieldName, maxCount) => upload.array(fieldName, maxCount)
-};
+// Ekspor instance multer secara langsung
+module.exports = upload;

@@ -54,7 +54,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li className="flex items-center">
                 <span className="mr-2">📧</span>
-                <a href="mailto:Anaphygon@protonmail.com" className="text-gray-300 hover:text-accent transition-colors">Anaphygon@protonmail.com</a>
+                <a href="mailto:Lisvindanu015@gmail.com" className="text-gray-300 hover:text-accent transition-colors">Lisvindanu015@pgmail.com</a>
               </li>
               <li className="flex items-center">
                 <span className="mr-2">📱</span>
