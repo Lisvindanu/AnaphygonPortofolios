@@ -9,7 +9,7 @@ const About = ({ content = [], profileImage }) => {
   };
 
   // Using the provided image instead of the placeholder
-  const defaultProfileImage = "https://i.imgur.com/pCDLtbM.png";
+  const defaultProfileImage = "https://images2.imgbox.com/d7/8a/Lc8RyK9L_o.jpg";
 
   return (
     <section id="about" className="py-20">

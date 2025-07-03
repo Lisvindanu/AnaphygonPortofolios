@@ -40,17 +40,16 @@ const ProjectManager = () => {
   const fetchProjects = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await getAllProjects();
       setProjects(response);
     } catch (error) {
       console.error('Error fetching projects:', error);
-      setError('Failed to load projects');
+      setError('Failed to load projects. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Remove the old getImageUrl function since we're importing it
 
   const resetForm = () => {
     setFormData({
@@ -67,23 +66,27 @@ const ProjectManager = () => {
     setSelectedThumbnail(null);
     setSelectedImages([]);
     setEditProject(null);
+    setError(null);
+    setSuccessMessage('');
   };
 
   const handleEdit = (project) => {
     setEditProject(project);
     setFormData({
-      title: project.title,
-      description: project.description,
-      thumbnail: project.thumbnail,
-      images: project.images,
-      tags: project.tags,
-      url: project.url,
-      github_url: project.github_url,
+      title: project.title || '',
+      description: project.description || '',
+      thumbnail: project.thumbnail || '',
+      images: project.images || '',
+      tags: project.tags || '',
+      url: project.url || '',
+      github_url: project.github_url || '',
       featured: project.featured === 1,
-      order_index: project.order_index
+      order_index: project.order_index || 0
     });
     setSelectedThumbnail(null);
     setSelectedImages([]);
+    setError(null);
+    setSuccessMessage('');
   };
 
   const handleDelete = async (id) => {
@@ -100,24 +103,31 @@ const ProjectManager = () => {
   };
 
   const handleInputChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked
-        : e.target.type === 'number' ? parseInt(e.target.value, 10) || 0
-            : e.target.value;
+    const { name, type, value, checked } = e.target;
 
-    setFormData({
-      ...formData,
-      [e.target.name]: value
-    });
+    let finalValue;
+    if (type === 'checkbox') {
+      finalValue = checked;
+    } else if (type === 'number') {
+      finalValue = parseInt(value, 10) || 0;
+    } else {
+      finalValue = value;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: finalValue
+    }));
   };
 
   const handleThumbnailSelect = (file) => {
     if (file) {
       setSelectedThumbnail(file);
       const previewUrl = URL.createObjectURL(file);
-      setFormData({ ...formData, thumbnail: previewUrl });
+      setFormData(prev => ({ ...prev, thumbnail: previewUrl }));
     } else {
       setSelectedThumbnail(null);
-      setFormData({ ...formData, thumbnail: '' });
+      setFormData(prev => ({ ...prev, thumbnail: '' }));
     }
   };
 
@@ -125,10 +135,10 @@ const ProjectManager = () => {
     if (files && files.length > 0) {
       setSelectedImages(files);
       const previewUrls = files.map(file => URL.createObjectURL(file));
-      setFormData({ ...formData, images: previewUrls.join(',') });
+      setFormData(prev => ({ ...prev, images: previewUrls.join(',') }));
     } else {
       setSelectedImages([]);
-      setFormData({ ...formData, images: '' });
+      setFormData(prev => ({ ...prev, images: '' }));
     }
   };
 
@@ -142,24 +152,28 @@ const ProjectManager = () => {
     setIsLoading(true);
     setError(null);
 
-    const submissionData = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (key !== 'thumbnail' && key !== 'images') {
-        submissionData.append(key, formData[key]);
-      }
-    });
-
-    if (selectedThumbnail) {
-      submissionData.append('thumbnail', selectedThumbnail);
-    }
-
-    if (selectedImages.length > 0) {
-      selectedImages.forEach(file => {
-        submissionData.append('images', file);
-      });
-    }
-
     try {
+      const submissionData = new FormData();
+
+      // Add form fields
+      Object.keys(formData).forEach(key => {
+        if (key !== 'thumbnail' && key !== 'images') {
+          submissionData.append(key, formData[key]);
+        }
+      });
+
+      // Add thumbnail file if selected
+      if (selectedThumbnail) {
+        submissionData.append('thumbnail', selectedThumbnail);
+      }
+
+      // Add image files if selected
+      if (selectedImages.length > 0) {
+        selectedImages.forEach(file => {
+          submissionData.append('images', file);
+        });
+      }
+
       if (editProject) {
         await updateProject(editProject.id, submissionData);
         showSuccessMessage('Project updated successfully!');
@@ -179,6 +193,8 @@ const ProjectManager = () => {
   };
 
   const openImagePreview = (images, startIndex = 0) => {
+    if (!images) return;
+
     const imageArray = images.split(',').filter(Boolean).map(img => getImageUrl(img.trim()));
     setPreviewImages(imageArray);
     setCurrentImageIndex(startIndex);
@@ -203,6 +219,17 @@ const ProjectManager = () => {
     );
   };
 
+  if (isLoading && projects.length === 0) {
+    return (
+        <div className="min-h-screen bg-primary text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent mx-auto mb-4"></div>
+            <p className="text-xl">Loading projects...</p>
+          </div>
+        </div>
+    );
+  }
+
   return (
       <div className="min-h-screen bg-primary text-white">
         <div className="container mx-auto px-4 py-8">
@@ -210,18 +237,32 @@ const ProjectManager = () => {
             <h1 className="text-3xl font-bold mb-8 text-center">Project Manager</h1>
 
             {/* Success Message */}
-            {successMessage && (
-                <div className="mb-6 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-200">
-                  {successMessage}
-                </div>
-            )}
+            <AnimatePresence>
+              {successMessage && (
+                  <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="mb-6 p-4 bg-green-500/20 border border-green-500 rounded-lg text-green-200"
+                  >
+                    {successMessage}
+                  </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Error Message */}
-            {error && (
-                <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-200">
-                  {error}
-                </div>
-            )}
+            <AnimatePresence>
+              {error && (
+                  <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-200"
+                  >
+                    {error}
+                  </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Form */}
             <motion.div
@@ -234,73 +275,61 @@ const ProjectManager = () => {
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Title */}
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">
-                      Project Title
-                    </label>
-                    <input
-                        type="text"
-                        id="title"
-                        name="title"
-                        required
-                        value={formData.title}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                        placeholder="Enter project title"
-                    />
-                  </div>
+                {/* Project Title */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Project Title</label>
+                  <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
+                      placeholder="Enter project title"
+                      required
+                  />
+                </div>
 
-                  {/* Tags */}
+                {/* Project URLs */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-300 mb-2">
-                      Tags (comma-separated)
-                    </label>
-                    <input
-                        type="text"
-                        id="tags"
-                        name="tags"
-                        value={formData.tags}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                        placeholder="React, Node.js, MongoDB"
-                    />
-                  </div>
-
-                  {/* Project URL */}
-                  <div>
-                    <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-2">
-                      Project URL
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Project URL</label>
                     <input
                         type="url"
-                        id="url"
                         name="url"
                         value={formData.url}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                        className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
                         placeholder="https://your-project.com"
                     />
                   </div>
-
-                  {/* GitHub URL */}
                   <div>
-                    <label htmlFor="github_url" className="block text-sm font-medium text-gray-300 mb-2">
-                      GitHub URL
-                    </label>
+                    <label className="block text-sm font-medium mb-2">GitHub URL</label>
                     <input
                         type="url"
-                        id="github_url"
                         name="github_url"
                         value={formData.github_url}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                        className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
                         placeholder="https://github.com/username/repo"
                     />
                   </div>
+                </div>
 
-                  {/* Featured */}
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tags (Comma-separated)</label>
+                  <input
+                      type="text"
+                      name="tags"
+                      value={formData.tags}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
+                      placeholder="React, Node.js, MongoDB"
+                  />
+                </div>
+
+                {/* Featured and Order */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center">
                     <input
                         type="checkbox"
@@ -308,73 +337,71 @@ const ProjectManager = () => {
                         name="featured"
                         checked={formData.featured}
                         onChange={handleInputChange}
-                        className="mr-2 h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
+                        className="mr-2"
                     />
-                    <label htmlFor="featured" className="text-sm font-medium text-gray-300">
-                      Featured Project
-                    </label>
+                    <label htmlFor="featured" className="text-sm font-medium">Featured Project</label>
                   </div>
-
-                  {/* Order Index */}
                   <div>
-                    <label htmlFor="order_index" className="block text-sm font-medium text-gray-300 mb-2">
-                      Order Index
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Order Index</label>
                     <input
                         type="number"
-                        id="order_index"
                         name="order_index"
                         value={formData.order_index}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                        placeholder="0"
+                        className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
+                        min="0"
                     />
                   </div>
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
-                    Description
-                  </label>
+                  <label className="block text-sm font-medium mb-2">Description</label>
                   <textarea
-                      id="description"
                       name="description"
-                      required
-                      rows={4}
                       value={formData.description}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-primary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                      rows={4}
+                      className="w-full px-3 py-2 bg-primary border border-gray-600 rounded-md focus:border-accent focus:outline-none"
                       placeholder="Describe your project..."
+                      required
                   />
                 </div>
 
                 {/* Thumbnail Upload */}
                 <div>
+                  <label className="block text-sm font-medium mb-2">Project Thumbnail</label>
                   <ImageUpload
-                      label="Project Thumbnail"
                       onImageSelect={handleThumbnailSelect}
-                      currentImage={getImageUrl(formData.thumbnail)}
-                      acceptMultiple={false}
-                      className="mb-4"
+                      maxFiles={1}
+                      acceptedTypes="image/*"
                   />
+                  {formData.thumbnail && (
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-400 mb-2">Current Thumbnail:</p>
+                        <img
+                            src={getImageUrl(formData.thumbnail)}
+                            alt="Thumbnail preview"
+                            className="w-32 h-20 object-cover rounded-lg"
+                            onError={handleImageError}
+                        />
+                      </div>
+                  )}
                 </div>
 
                 {/* Additional Images Upload */}
                 <div>
+                  <label className="block text-sm font-medium mb-2">Additional Project Images</label>
                   <ImageUpload
-                      label="Additional Project Images"
                       onImageSelect={handleImagesSelect}
-                      acceptMultiple={true}
                       maxFiles={5}
-                      className="mb-4"
+                      acceptedTypes="image/*"
+                      multiple
                   />
-
-                  {/* Existing Images Preview */}
-                  {formData.images && !selectedImages.length && (
+                  {formData.images && (
                       <div className="mt-4">
-                        <p className="text-sm text-gray-400 mb-3">Current images:</p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <p className="text-sm text-gray-400 mb-2">Current Images:</p>
+                        <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                           {formData.images.split(',').filter(Boolean).map((img, index) => (
                               <div key={index} className="relative group">
                                 <img
@@ -415,7 +442,7 @@ const ProjectManager = () => {
                   <button
                       type="submit"
                       disabled={isLoading}
-                      className="px-6 py-3 bg-accent hover:bg-accent/80 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+                      className="px-6 py-3 bg-accent hover:bg-accent/80 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? 'Saving...' : editProject ? 'Update Project' : 'Add Project'}
                   </button>
@@ -437,146 +464,120 @@ const ProjectManager = () => {
             <div className="space-y-6">
               <h2 className="text-2xl font-semibold">Existing Projects</h2>
 
-              {isLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
-                    <p className="text-gray-400 mt-4">Loading projects...</p>
-                  </div>
-              ) : projects.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No projects found. Add your first project above!</p>
+              {projects.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-400 text-lg">No projects found. Add your first project above!</p>
                   </div>
               ) : (
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-6">
                     {projects.map((project) => (
                         <motion.div
                             key={project.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="bg-primary/30 rounded-lg border border-gray-700 overflow-hidden hover:border-accent/50 transition-colors"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-secondary rounded-lg p-6 border border-gray-700"
                         >
-                          {/* Project Thumbnail */}
-                          {project.thumbnail && (
-                              <div className="aspect-video overflow-hidden">
-                                <img
-                                    src={getImageUrl(project.thumbnail)}
-                                    alt={project.title}
-                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                                />
-                              </div>
-                          )}
-
-                          <div className="p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h3 className="text-lg font-semibold text-white truncate">{project.title}</h3>
-                              {project.featured === 1 && (
-                                  <span className="px-2 py-1 text-xs bg-accent/20 text-accent rounded-full border border-accent/30">
-                            Featured
-                          </span>
-                              )}
+                          <div className="flex flex-col md:flex-row gap-4">
+                            {/* Project Thumbnail */}
+                            <div className="flex-shrink-0">
+                              <img
+                                  src={getImageUrl(project.thumbnail)}
+                                  alt={project.title}
+                                  className="w-full md:w-48 h-32 object-cover rounded-lg"
+                                  onError={handleImageError}
+                              />
                             </div>
 
-                            <p className="text-gray-300 text-sm mb-3 line-clamp-2">
-                              {project.description}
-                            </p>
-
-                            {/* Tags */}
-                            {project.tags && (
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                  {project.tags.split(',').map((tag, index) => (
-                                      <span
-                                          key={index}
-                                          className="px-2 py-1 text-xs bg-secondary text-gray-300 rounded-full"
-                                      >
-                              {tag.trim()}
+                            {/* Project Details */}
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start mb-2">
+                                <h3 className="text-xl font-semibold">{project.title}</h3>
+                                <div className="flex gap-2">
+                                  {project.featured === 1 && (
+                                      <span className="px-2 py-1 bg-accent text-white text-xs rounded-full">
+                                Featured
+                              </span>
+                                  )}
+                                  <span className="px-2 py-1 bg-gray-600 text-white text-xs rounded-full">
+                              Order: {project.order_index}
                             </span>
-                                  ))}
                                 </div>
-                            )}
+                              </div>
 
-                            {/* Additional Images Preview */}
-                            {project.images && (
-                                <div className="mb-3">
-                                  <p className="text-xs text-gray-400 mb-2">Additional Images:</p>
-                                  <div className="flex gap-2 overflow-x-auto">
-                                    {project.images.split(',').filter(Boolean).slice(0, 4).map((img, index) => (
-                                        <div key={index} className="relative flex-shrink-0">
+                              <p className="text-gray-300 mb-3 line-clamp-3">{project.description}</p>
+
+                              {/* Tags */}
+                              {project.tags && (
+                                  <div className="flex flex-wrap gap-2 mb-3">
+                                    {project.tags.split(',').map((tag, index) => (
+                                        <span
+                                            key={index}
+                                            className="px-2 py-1 bg-primary text-accent text-xs rounded-full"
+                                        >
+                                {tag.trim()}
+                              </span>
+                                    ))}
+                                  </div>
+                              )}
+
+                              {/* Links */}
+                              <div className="flex gap-4 mb-3">
+                                {project.url && (
+                                    <a
+                                        href={project.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-accent hover:text-accent/80 text-sm"
+                                    >
+                                      🔗 Live Demo
+                                    </a>
+                                )}
+                                {project.github_url && (
+                                    <a
+                                        href={project.github_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-accent hover:text-accent/80 text-sm"
+                                    >
+                                      📂 GitHub
+                                    </a>
+                                )}
+                              </div>
+
+                              {/* Additional Images */}
+                              {project.images && (
+                                  <div className="mb-3">
+                                    <p className="text-sm text-gray-400 mb-2">Additional Images:</p>
+                                    <div className="flex gap-2 overflow-x-auto">
+                                      {project.images.split(',').filter(Boolean).map((img, index) => (
                                           <img
+                                              key={index}
                                               src={getImageUrl(img.trim())}
                                               alt={`${project.title} image ${index + 1}`}
-                                              className="w-12 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                                              className="w-20 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
                                               onClick={() => openImagePreview(project.images, index)}
+                                              onError={handleImageError}
                                           />
-                                          {/* Preview icon */}
-                                          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 rounded flex items-center justify-center transition-all cursor-pointer">
-                                            <svg
-                                                className="w-4 h-4 text-white opacity-0 hover:opacity-100 transition-opacity"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  strokeWidth={2}
-                                                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                              />
-                                            </svg>
-                                          </div>
-                                        </div>
-                                    ))}
-                                    {project.images.split(',').filter(Boolean).length > 4 && (
-                                        <div
-                                            className="w-12 h-12 bg-secondary/50 rounded flex items-center justify-center cursor-pointer hover:bg-secondary/70 transition-colors"
-                                            onClick={() => openImagePreview(project.images, 4)}
-                                        >
-                                <span className="text-xs text-gray-300">
-                                  +{project.images.split(',').filter(Boolean).length - 4}
-                                </span>
-                                        </div>
-                                    )}
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                            )}
-
-                            {/* Links */}
-                            <div className="flex gap-2 mb-4">
-                              {project.url && (
-                                  <a
-                                      href={project.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="px-3 py-1 text-xs bg-accent/20 text-accent rounded hover:bg-accent/30 transition-colors"
-                                  >
-                                    Live Demo
-                                  </a>
                               )}
-                              {project.github_url && (
-                                  <a
-                                      href={project.github_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-                                  >
-                                    GitHub
-                                  </a>
-                              )}
-                            </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                              <button
-                                  onClick={() => handleEdit(project)}
-                                  className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                  onClick={() => handleDelete(project.id)}
-                                  className="flex-1 px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-500 transition-colors"
-                              >
-                                Delete
-                              </button>
+                              {/* Action Buttons */}
+                              <div className="flex gap-3">
+                                <button
+                                    onClick={() => handleEdit(project)}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(project.id)}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md text-sm transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </motion.div>
@@ -589,7 +590,7 @@ const ProjectManager = () => {
 
         {/* Image Preview Modal */}
         <AnimatePresence>
-          {showImagePreview && previewImages.length > 0 && (
+          {showImagePreview && (
               <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -597,64 +598,52 @@ const ProjectManager = () => {
                   className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
                   onClick={closeImagePreview}
               >
-                <div
-                    className="relative max-w-5xl max-h-[90vh] bg-secondary rounded-lg overflow-hidden"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Close button */}
-                  <button
-                      onClick={closeImagePreview}
-                      className="absolute top-4 right-4 z-10 bg-black/50 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-black/70 transition-colors text-xl"
-                  >
-                    ×
-                  </button>
+                <div className="relative max-w-4xl max-h-full p-4">
+                  <img
+                      src={previewImages[currentImageIndex]}
+                      alt={`Preview ${currentImageIndex + 1}`}
+                      className="max-w-full max-h-full object-contain"
+                      onClick={(e) => e.stopPropagation()}
+                  />
 
-                  {/* Navigation buttons */}
+                  {/* Navigation Buttons */}
                   {previewImages.length > 1 && (
                       <>
                         <button
-                            onClick={prevImage}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-black/70 transition-colors text-xl"
+                            onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
                         >
-                          ←
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
                         </button>
                         <button
-                            onClick={nextImage}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 text-white rounded-full w-12 h-12 flex items-center justify-center hover:bg-black/70 transition-colors text-xl"
+                            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
                         >
-                          →
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
                         </button>
                       </>
                   )}
 
-                  {/* Image */}
-                  <img
-                      src={previewImages[currentImageIndex]}
-                      alt={`Preview ${currentImageIndex + 1}`}
-                      className="w-full h-full object-contain max-h-[80vh]"
-                  />
+                  {/* Close Button */}
+                  <button
+                      onClick={closeImagePreview}
+                      className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
 
-                  {/* Image info */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-4">
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm">
-                        Image {currentImageIndex + 1} of {previewImages.length}
-                      </p>
-                      {previewImages.length > 1 && (
-                          <div className="flex gap-2">
-                            {previewImages.map((_, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => setCurrentImageIndex(index)}
-                                    className={`w-2 h-2 rounded-full transition-colors ${
-                                        index === currentImageIndex ? 'bg-accent' : 'bg-gray-500'
-                                    }`}
-                                />
-                            ))}
-                          </div>
-                      )}
-                    </div>
-                  </div>
+                  {/* Image Counter */}
+                  {previewImages.length > 1 && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                        {currentImageIndex + 1} / {previewImages.length}
+                      </div>
+                  )}
                 </div>
               </motion.div>
           )}

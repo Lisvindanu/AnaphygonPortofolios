@@ -1,57 +1,118 @@
 // src/utils/imageHelper.js
 
-// Base URL untuk aset (tanpa /api path)
-const ASSET_URL = process.env.REACT_APP_API_URL
-    ? process.env.REACT_APP_API_URL.replace('/api', '')
-    : 'http://localhost:5000';
+// Get the base URL for assets (not the API URL)
+const getAssetBaseURL = () => {
+    if (process.env.NODE_ENV === 'production') {
+        return 'https://api.vinmedia.my.id';
+    }
+    return process.env.REACT_APP_API_URL ?
+        process.env.REACT_APP_API_URL.replace('/api', '') :
+        'http://localhost:5000';
+};
+
+const ASSET_BASE_URL = getAssetBaseURL();
 
 /**
- * Helper function untuk menentukan URL gambar yang benar
- * @param {string} imagePath - Path gambar dari database atau input
- * @returns {string} - URL gambar yang valid
+ * Get the complete URL for an image path
+ * @param {string} path - The image path from the API
+ * @returns {string} - Complete image URL
  */
-export const getImageUrl = (imagePath) => {
-    // Return placeholder jika tidak ada path
-    if (!imagePath) {
-        return 'https://via.placeholder.com/600x400/1a1a1a/00fff0?text=No+Image';
+export const getImageUrl = (path) => {
+    if (!path) {
+        return 'https://via.placeholder.com/600x400/2a2a2a/ffffff?text=No+Image';
     }
 
-    // Return as-is jika sudah URL lengkap atau blob URL
-    if (imagePath.startsWith('http://') ||
-        imagePath.startsWith('https://') ||
-        imagePath.startsWith('blob:')) {
-        return imagePath;
+    // If it's already a complete URL, return as is
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
     }
 
-    // Jika path dimulai dengan /uploads, gabungkan dengan ASSET_URL
-    if (imagePath.startsWith('/uploads')) {
-        return `${ASSET_URL}${imagePath}`;
+    // If it's a relative path, prepend the asset base URL
+    if (path.startsWith('/')) {
+        return `${ASSET_BASE_URL}${path}`;
     }
 
-    // Jika path tidak dimulai dengan /, tambahkan /uploads/ prefix
-    return `${ASSET_URL}/uploads/${imagePath}`;
+    // If it doesn't start with /, add it
+    return `${ASSET_BASE_URL}/${path}`;
 };
 
 /**
- * Helper function untuk mendapatkan multiple image URLs
- * @param {string} imagesString - String gambar yang dipisah koma
- * @returns {string[]} - Array URL gambar
+ * Handle image loading errors
+ * @param {Event} event - The error event
  */
-export const getImageUrls = (imagesString) => {
-    if (!imagesString) return [];
-
-    return imagesString
-        .split(',')
-        .map(img => img.trim())
-        .filter(img => img.length > 0)
-        .map(img => getImageUrl(img));
+export const handleImageError = (event) => {
+    const img = event.target;
+    if (img.src !== 'https://via.placeholder.com/600x400/2a2a2a/ffffff?text=Error+Loading+Image') {
+        img.src = 'https://via.placeholder.com/600x400/2a2a2a/ffffff?text=Error+Loading+Image';
+    }
 };
 
 /**
- * Error handler untuk gambar yang gagal load
- * @param {Event} e - Event error dari img tag
+ * Preload an image and return a promise
+ * @param {string} src - Image source URL
+ * @returns {Promise} - Resolves when image is loaded
  */
-export const handleImageError = (e) => {
-    e.target.src = 'https://via.placeholder.com/600x400/1a1a1a/00fff0?text=Image+Not+Found';
-    e.target.onerror = null; // Prevent infinite loop
+export const preloadImage = (src) => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+};
+
+/**
+ * Create a thumbnail URL from an image path
+ * @param {string} path - Original image path
+ * @param {number} width - Desired width
+ * @param {number} height - Desired height
+ * @returns {string} - Thumbnail URL
+ */
+export const getThumbnailUrl = (path, width = 300, height = 200) => {
+    const imageUrl = getImageUrl(path);
+
+    // If it's a placeholder URL, return as is
+    if (imageUrl.includes('via.placeholder.com')) {
+        return imageUrl;
+    }
+
+    // For production, you might want to implement server-side image resizing
+    // For now, return the original image URL
+    return imageUrl;
+};
+
+/**
+ * Check if an image exists
+ * @param {string} path - Image path
+ * @returns {Promise<boolean>} - True if image exists
+ */
+export const imageExists = async (path) => {
+    try {
+        await preloadImage(getImageUrl(path));
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+/**
+ * Get optimized image URL based on device pixel ratio
+ * @param {string} path - Image path
+ * @returns {string} - Optimized image URL
+ */
+export const getOptimizedImageUrl = (path) => {
+    const imageUrl = getImageUrl(path);
+
+    // For high DPI displays, you might want to serve higher resolution images
+    // This is a placeholder for future optimization
+    return imageUrl;
+};
+
+export default {
+    getImageUrl,
+    handleImageError,
+    preloadImage,
+    getThumbnailUrl,
+    imageExists,
+    getOptimizedImageUrl
 };

@@ -11,35 +11,49 @@ const cvRoutes = require('./routes/cv.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const contactRoutes = require('./routes/contact.routes');
 
-// Muat environment variables dari root folder
+// Load environment variables from root folder
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 5000;
 
-// Konfigurasi CORS
+// Enhanced CORS configuration
 app.use(cors({
-  origin: ['https://portofolio.vinmedia.my.id', 'http://portofolio.vinmedia.my.id', 'http://localhost:3000'],
+  origin: [
+    'https://portofolio.vinmedia.my.id',
+    'http://portofolio.vinmedia.my.id',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true
 }));
 
-// Handle preflight requests
+// Handle preflight requests for all routes
 app.options('*', cors());
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// --- INI BAGIAN YANG DIPERBAIKI ---
-// Sajikan file statis dari direktori 'uploads' di root proyek
-app.use('/uploads', express.static('uploads'));
+// Static file serving - serve uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Endpoint Health Check
+// Security headers
+app.use((req, res, next) => {
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
   });
 });
 
@@ -52,26 +66,33 @@ app.use('/api/cv', cvRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
 
-// Sajikan file statis dari React build hanya di environment produksi
+// Serve static files from React build in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../build')));
 
-  // Fallback ke index.html untuk routing SPA
+  // Fallback to index.html for SPA routing
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../build', 'index.html'));
   });
 }
 
-// Global Error Handler
+// Global error handler
 app.use((error, req, res, next) => {
   console.error('Global error handler:', error);
-  res.status(500).json({
+
+  // Don't expose detailed error messages in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  res.status(error.status || 500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    message: isDevelopment ? error.message : 'Something went wrong',
+    ...(isDevelopment && { stack: error.stack })
   });
 });
 
-// Mulai server
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server berjalan di port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🔗 API URL: ${process.env.NODE_ENV === 'production' ? 'https://api.vinmedia.my.id' : `http://localhost:${PORT}`}`);
 });
