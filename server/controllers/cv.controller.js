@@ -1,5 +1,5 @@
 // server/controllers/cv.controller.js
-const db = require('../config/database'); // Pastikan path ini benar
+const db = require('../config/database');
 const fs = require('fs');
 const path = require('path');
 
@@ -161,6 +161,31 @@ const toggleActive = async (req, res) => {
     }
 };
 
+const viewCV = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [rows] = await db.execute('SELECT * FROM cvs WHERE id = ?', [id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'CV not found' });
+        }
+
+        const cv = rows[0];
+        const filePath = path.join(__dirname, '..', '..', cv.file_path);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'CV file not found on server' });
+        }
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${cv.file_name}"`);
+        fs.createReadStream(filePath).pipe(res);
+    } catch (error) {
+        console.error('Error viewing CV:', error);
+        res.status(500).json({ error: 'Failed to view CV' });
+    }
+};
+
 module.exports = {
     getAllCVs,
     getCVById,
@@ -168,5 +193,6 @@ module.exports = {
     updateCV,
     deleteCV,
     downloadCV,
-    toggleActive
+    toggleActive,
+    viewCV
 };

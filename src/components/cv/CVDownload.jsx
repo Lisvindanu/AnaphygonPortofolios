@@ -1,12 +1,14 @@
 // src/components/cv/CVDownload.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { getAllCVs, createDownloadLink } from '../../services/cvApi';
+import { getAllCVs, createDownloadLink, fetchCVAsBlob } from '../../services/cvApi';
+import PDFPreviewModal from '../common/PDFPreviewModal';
 
 const CVDownload = () => {
     const [cvs, setCvs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
 
     useEffect(() => {
         fetchActiveCVs();
@@ -16,23 +18,32 @@ const CVDownload = () => {
         try {
             setIsLoading(true);
             const data = await getAllCVs();
-            // Filter only active CVs for public display
             const activeCVs = data.filter(cv => cv.is_active);
             setCvs(activeCVs);
-            setIsLoading(false);
         } catch (error) {
             console.error('Error fetching CVs:', error);
             setError('Failed to load CVs');
+        } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handlePreview = async (id) => {
+        try {
+            const blob = await fetchCVAsBlob(id);
+            const fileURL = URL.createObjectURL(blob);
+            setPreviewPdfUrl(fileURL);
+        } catch (err) {
+            console.error("Error creating preview URL", err);
+            setError("Could not load PDF for preview.");
         }
     };
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB'][i];
     };
 
     const formatDate = (dateString) => {
@@ -134,10 +145,8 @@ const CVDownload = () => {
 
                                 {/* Action Buttons */}
                                 <div className="flex gap-3 justify-center">
-                                    <a
-                                        href={createDownloadLink(cv.id)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                    <button
+                                        onClick={() => handlePreview(cv.id)}
                                         className="px-4 py-2 bg-secondary border border-gray-600 text-white rounded-md hover:border-accent hover:text-accent transition-all duration-300 flex items-center gap-2"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +154,7 @@ const CVDownload = () => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                         Preview
-                                    </a>
+                                    </button>
 
                                     <a
                                         href={createDownloadLink(cv.id)}
@@ -176,6 +185,7 @@ const CVDownload = () => {
                     </motion.div>
                 </motion.div>
             </div>
+            <PDFPreviewModal pdfUrl={previewPdfUrl} onClose={() => setPreviewPdfUrl(null)} />
         </section>
     );
 };

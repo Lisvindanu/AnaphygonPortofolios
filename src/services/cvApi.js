@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Create axios instance for CV operations
 const cvApi = axios.create({
     baseURL: `${API_URL}/cv`,
     headers: {
@@ -11,7 +10,6 @@ const cvApi = axios.create({
     }
 });
 
-// Add token to requests
 cvApi.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -20,7 +18,6 @@ cvApi.interceptors.request.use((config) => {
     return config;
 });
 
-// CV API functions
 export const getAllCVs = async () => {
     const response = await cvApi.get('/');
     return response.data;
@@ -33,9 +30,7 @@ export const getCVById = async (id) => {
 
 export const uploadCV = async (formData) => {
     const response = await cvApi.post('/', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
 };
@@ -50,19 +45,20 @@ export const deleteCV = async (id) => {
     return response.data;
 };
 
-export const downloadCV = async (id) => {
-    const response = await cvApi.get(`/download/${id}`, {
-        responseType: 'blob'
-    });
-    return response;
-};
-
 export const toggleCVActive = async (id) => {
     const response = await cvApi.put(`/${id}/toggle-active`);
     return response.data;
 };
 
-// Helper function to create download link
-export const createDownloadLink = (id, filename) => {
+// Fungsi untuk mendapatkan PDF sebagai data Blob untuk pratinjau
+export const fetchCVAsBlob = async (id) => {
+    const response = await cvApi.get(`/view/${id}`, {
+        responseType: 'blob'
+    });
+    return response.data; // Langsung kembalikan data blob
+};
+
+// Helper untuk link download langsung
+export const createDownloadLink = (id) => {
     return `${API_URL}/cv/download/${id}`;
 };

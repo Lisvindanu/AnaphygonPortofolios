@@ -51,13 +51,19 @@ app.use('/api/cv', cvRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
 
-// Sajikan file statis dari React build
-app.use(express.static(path.join(__dirname, '../build')));
+// --- START of changes ---
 
-// Fallback ke index.html untuk routing SPA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../build', 'index.html'));
-});
+// Sajikan file statis dari React build hanya di environment produksi
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../build')));
+
+  // Fallback ke index.html untuk routing SPA
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+  });
+}
+
+// --- END of changes ---
 
 // Global Error Handler
 app.use((error, req, res, next) => {

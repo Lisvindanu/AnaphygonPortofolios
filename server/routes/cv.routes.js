@@ -10,6 +10,7 @@ const router = express.Router();
 router.get('/', cvController.getAllCVs);
 router.get('/:id', cvController.getCVById);
 router.get('/download/:id', cvController.downloadCV);
+router.get('/view/:id', cvController.viewCV); // Rute baru untuk pratinjau
 
 // Rute Terproteksi (khusus admin)
 router.post('/', verifyToken, uploadSingle('cv_file'), cvController.uploadCV);
