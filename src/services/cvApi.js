@@ -1,7 +1,8 @@
 // src/services/cvApi.js
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://api.vinmedia.my.id/api';
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const cvApi = axios.create({
     baseURL: `${API_URL}/cv`,
