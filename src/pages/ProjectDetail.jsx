@@ -4,22 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Background from '../components/three/Background';
 import { getProjectById } from '../services/api';
-
-// Definisikan base URL untuk ASET (tanpa /api)
-const ASSET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
-
-// Helper function untuk menentukan URL gambar yang benar
-const getImageUrl = (path) => {
-  if (!path) {
-    return 'https://via.placeholder.com/600x400';
-  }
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
-  // Gunakan ASSET_URL, bukan API_URL
-  return `${ASSET_URL}${path}`;
-};
-
+import { getImageUrl, handleImageError } from '../../utils/imageHelper'; // Import dari helper
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -173,6 +158,7 @@ const ProjectDetail = () => {
                           alt={project.title}
                           className="w-full h-auto rounded-lg shadow-lg mb-6 cursor-pointer hover:opacity-80 transition"
                           onClick={() => handleImageClick(fullThumbnailUrl)}
+                          onError={handleImageError}
                       />
 
                       {fullImageUrls.map((imgUrl, index) => (
@@ -182,6 +168,7 @@ const ProjectDetail = () => {
                               alt={`${project.title} - Gambar ${index + 1}`}
                               className="w-full h-auto rounded-lg shadow-lg mb-6 cursor-pointer hover:opacity-80 transition"
                               onClick={() => handleImageClick(imgUrl)}
+                              onError={handleImageError}
                           />
                       ))}
                     </div>

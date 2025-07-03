@@ -5,21 +5,7 @@ import { getAllProjects } from '../services/api';
 import Card from '../components/common/Card';
 import Background from '../components/three/Background';
 import { Link } from 'react-router-dom';
-
-// Definisikan base URL untuk ASET (tanpa /api)
-const ASSET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
-
-// Helper function untuk menentukan URL gambar yang benar
-const getImageUrl = (path) => {
-  if (!path) {
-    return 'https://via.placeholder.com/600x400';
-  }
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
-  }
-  return `${ASSET_URL}${path}`;
-};
-
+import { getImageUrl, handleImageError } from '../../utils/imageHelper'; // Import dari helper
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
@@ -141,9 +127,10 @@ const Projects = () => {
                             src={getImageUrl(project.thumbnail)}
                             alt={project.title}
                             className="w-full h-56 object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                            onError={handleImageError}
                         />
 
-                        {project.featured && (
+                        {project.featured === 1 && (
                             <div className="absolute top-4 right-4 bg-accent text-primary text-xs font-bold px-2 py-1 rounded-full">
                               Featured
                             </div>
