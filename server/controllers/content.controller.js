@@ -1,5 +1,6 @@
 // server/controllers/content.controller.js
-const db = require('../config/db');
+const db = require('../config/database');
+
 
 exports.getAllContent = async (req, res) => {
   try {

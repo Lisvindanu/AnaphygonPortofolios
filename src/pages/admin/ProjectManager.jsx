@@ -1,15 +1,14 @@
-// src/pages/admin/ProjectManager.jsx
+// src/pages/admin/ProjectManager.jsx - Complete Implementation
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 import { getAllProjects, createProject, updateProject, deleteProject } from '../../services/api';
-import Button from '../../components/common/Button';
+import ImageUpload from '../../components/common/ImageUpload';
+import { motion } from 'framer-motion';
 
 const ProjectManager = () => {
+  const { currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [editProject, setEditProject] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,7 +20,11 @@ const ProjectManager = () => {
     featured: false,
     order_index: 0
   });
-  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [selectedThumbnail, setSelectedThumbnail] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchProjects();
@@ -29,19 +32,149 @@ const ProjectManager = () => {
 
   const fetchProjects = async () => {
     try {
+      setIsLoading(true);
       const data = await getAllProjects();
       setProjects(data);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching projects:', error);
-    } finally {
-      setLoading(false);
+      setError('Failed to load projects. Please try again.');
+      setIsLoading(false);
     }
   };
 
-  const handleCreateNew = () => {
-    setIsCreating(true);
-    setIsEditing(false);
-    setSelectedProject(null);
+  const handleInputChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked
+        : e.target.type === 'number' ? parseInt(e.target.value, 10) || 0
+            : e.target.value;
+
+    setFormData({
+      ...formData,
+      [e.target.name]: value
+    });
+  };
+
+  const handleThumbnailSelect = async (file) => {
+    if (file) {
+      setSelectedThumbnail(file);
+      // Create preview URL for immediate display
+      const previewUrl = URL.createObjectURL(file);
+      setFormData({
+        ...formData,
+        thumbnail: previewUrl
+      });
+    } else {
+      setSelectedThumbnail(null);
+      setFormData({
+        ...formData,
+        thumbnail: ''
+      });
+    }
+  };
+
+  const handleImagesSelect = async (files) => {
+    if (files && files.length > 0) {
+      setSelectedImages(files);
+      // Create preview URLs
+      const previewUrls = files.map(file => URL.createObjectURL(file));
+      setFormData({
+        ...formData,
+        images: previewUrls.join(',')
+      });
+    } else {
+      setSelectedImages([]);
+      setFormData({
+        ...formData,
+        images: ''
+      });
+    }
+  };
+
+  const uploadFile = async (file, type = 'image') => {
+    const formData = new FormData();
+    formData.append(type, file);
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      return data.filePath;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+  };
+
+  const showSuccessMessage = (message) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      let finalFormData = { ...formData };
+
+      // Upload thumbnail if selected
+      if (selectedThumbnail) {
+        try {
+          const thumbnailPath = await uploadFile(selectedThumbnail, 'thumbnail');
+          finalFormData.thumbnail = thumbnailPath;
+        } catch (error) {
+          setError('Failed to upload thumbnail. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Upload additional images if selected
+      if (selectedImages.length > 0) {
+        try {
+          const imagePaths = [];
+          for (let file of selectedImages) {
+            const imagePath = await uploadFile(file, 'image');
+            imagePaths.push(imagePath);
+          }
+          finalFormData.images = imagePaths.join(',');
+        } catch (error) {
+          setError('Failed to upload images. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (editProject) {
+        await updateProject(editProject.id, finalFormData);
+        showSuccessMessage('Project updated successfully!');
+      } else {
+        await createProject(finalFormData);
+        showSuccessMessage('New project added successfully!');
+      }
+
+      await fetchProjects();
+      resetForm();
+    } catch (error) {
+      console.error('Error saving project:', error);
+      setError('Failed to save project. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       title: '',
       description: '',
@@ -51,340 +184,410 @@ const ProjectManager = () => {
       url: '',
       github_url: '',
       featured: false,
-      order_index: projects.length
+      order_index: 0
     });
+    setSelectedThumbnail(null);
+    setSelectedImages([]);
+    setEditProject(null);
+    setError(null);
   };
 
   const handleEdit = (project) => {
-    setIsEditing(true);
-    setIsCreating(false);
-    setSelectedProject(project);
+    setEditProject(project);
     setFormData({
-      title: project.title || '',
-      description: project.description || '',
+      title: project.title,
+      description: project.description,
       thumbnail: project.thumbnail || '',
       images: project.images || '',
       tags: project.tags || '',
       url: project.url || '',
       github_url: project.github_url || '',
-      featured: project.featured || false,
-      order_index: project.order_index || 0
+      featured: project.featured === 1,
+      order_index: project.order_index
+    });
+
+    // Clear selected files when editing (use existing URLs)
+    setSelectedThumbnail(null);
+    setSelectedImages([]);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
     });
   };
 
-  const handleDelete = async (projectId) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
+  const handleDelete = async (id, title) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      setIsLoading(true);
       try {
-        await deleteProject(projectId);
-        
-        // Update local state
-        setProjects(projects.filter(project => project.id !== projectId));
-        
-        // Show success notification
-        showNotification('Project deleted successfully!', 'success');
+        await deleteProject(id);
+        showSuccessMessage('Project deleted successfully!');
+        await fetchProjects();
       } catch (error) {
         console.error('Error deleting project:', error);
-        showNotification('Error deleting project. Please try again.', 'error');
+        setError('Failed to delete project. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      if (isCreating) {
-        // Create new project
-        const result = await createProject(formData);
-        
-        // Update local state
-        setProjects([...projects, { id: result.id, ...formData }]);
-        showNotification('Project created successfully!', 'success');
-      } else if (isEditing) {
-        // Update existing project
-        await updateProject(selectedProject.id, formData);
-        
-        // Update local state
-        setProjects(projects.map(project => 
-          project.id === selectedProject.id ? { ...project, ...formData } : project
-        ));
-        showNotification('Project updated successfully!', 'success');
-      }
-      
-      // Reset form
-      setIsCreating(false);
-      setIsEditing(false);
-      setSelectedProject(null);
-    } catch (error) {
-      console.error('Error saving project:', error);
-      showNotification('Error saving project. Please try again.', 'error');
-    }
-  };
-
-  const showNotification = (message, type) => {
-    setNotification({
-      show: true,
-      message,
-      type
-    });
-    
-    setTimeout(() => {
-      setNotification({ show: false, message: '', type: '' });
-    }, 3000);
-  };
-
-  if (loading) {
+  if (!currentUser) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-glow h-16 w-16 rounded-full bg-accent mb-4 mx-auto"></div>
-          <p className="text-xl">Loading projects...</p>
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
+            <p className="text-gray-400">You need to be logged in to access this page.</p>
+          </div>
         </div>
-      </div>
     );
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="pt-24 pb-12"
-    >
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Project Manager</h1>
-          <p className="text-gray-400">Manage your portfolio projects.</p>
-        </div>
-        <Button onClick={handleCreateNew} variant="accent">
-          Add New Project
-        </Button>
-      </div>
-      
-      {notification.show && (
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`p-4 mb-6 rounded-md ${notification.type === 'success' ? 'bg-green-500 bg-opacity-10 text-green-500' : 'bg-red-500 bg-opacity-10 text-red-500'}`}
+      <div className="container mx-auto px-4 py-20">
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-6xl mx-auto"
         >
-          {notification.message}
-        </motion.div>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <div className="glass-effect p-4 rounded-lg">
-            <h3 className="text-lg font-semibold mb-4">Projects List</h3>
-            
-            {projects.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {projects.map((project) => (
-                  <button
-                    key={project.id}
-                    className={`w-full text-left p-3 rounded-md transition-colors ${selectedProject?.id === project.id ? 'bg-accent text-primary' : 'hover:bg-secondary'}`}
-                    onClick={() => handleEdit(project)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h4 className="font-medium truncate">{project.title}</h4>
-                        {project.featured && (
-                          <span className="text-xs bg-highlight bg-opacity-20 text-highlight px-2 py-0.5 rounded-full">
-                            Featured
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(project.id);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400">No projects found. Create one!</p>
-            )}
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-white mb-4">Project Manager</h1>
+            <p className="text-gray-400">Manage your portfolio projects with images and files</p>
           </div>
-        </div>
-        
-        <div className="md:col-span-2">
-          <div className="glass-effect p-6 rounded-lg">
-            <h3 className="text-xl font-semibold mb-4">
-              {isCreating ? 'Create New Project' : isEditing ? 'Edit Project' : 'Select a project or create a new one'}
-            </h3>
-            
-            {(isCreating || isEditing) && (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">
-                      Title *
-                    </label>
-                    <input
+
+          {/* Messages */}
+          {error && (
+              <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-red-500/20 text-red-400 p-4 rounded-lg mb-6 border border-red-500/30"
+              >
+                {error}
+              </motion.div>
+          )}
+
+          {successMessage && (
+              <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-green-500/20 text-green-400 p-4 rounded-lg mb-6 border border-green-500/30"
+              >
+                {successMessage}
+              </motion.div>
+          )}
+
+          {/* Project Form */}
+          <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-secondary/50 backdrop-blur-sm p-6 rounded-lg border border-gray-700 mb-8"
+          >
+            <h2 className="text-2xl font-bold text-white mb-6">
+              {editProject ? 'Edit Project' : 'Add New Project'}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">
+                    Project Title *
+                  </label>
+                  <input
                       id="title"
                       name="title"
                       type="text"
                       required
                       value={formData.title}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="thumbnail" className="block text-sm font-medium text-gray-300 mb-1">
-                      Thumbnail URL
-                    </label>
-                    <input
-                      id="thumbnail"
-                      name="thumbnail"
-                      type="text"
-                      value={formData.thumbnail}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
+                      className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                      placeholder="Project name"
+                  />
                 </div>
-                
+
                 <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1">
-                    Description
+                  <label htmlFor="tags" className="block text-sm font-medium text-gray-300 mb-2">
+                    Technologies (comma separated)
                   </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    rows="4"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                  ></textarea>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-300 mb-1">
-                      Tags (comma separated)
-                    </label>
-                    <input
+                  <input
                       id="tags"
                       name="tags"
                       type="text"
                       value={formData.tags}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                      placeholder="e.g. React, Tailwind, API"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="images" className="block text-sm font-medium text-gray-300 mb-1">
-                      Additional Images URLs (comma separated)
-                    </label>
-                    <input
-                      id="images"
-                      name="images"
-                      type="text"
-                      value={formData.images}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
+                      className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                      placeholder="React, Node.js, MongoDB"
+                  />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-1">
-                      Live URL
-                    </label>
-                    <input
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
+                  Description *
+                </label>
+                <textarea
+                    id="description"
+                    name="description"
+                    required
+                    rows={4}
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                    placeholder="Describe your project..."
+                />
+              </div>
+
+              {/* Thumbnail Upload */}
+              <div>
+                <ImageUpload
+                    label="Project Thumbnail"
+                    onImageSelect={handleThumbnailSelect}
+                    currentImage={formData.thumbnail}
+                    acceptMultiple={false}
+                    className="mb-4"
+                />
+                {!selectedThumbnail && formData.thumbnail && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-400 mb-2">Current thumbnail:</p>
+                      <img
+                          src={formData.thumbnail}
+                          alt="Current thumbnail"
+                          className="max-w-32 max-h-32 rounded-md object-cover"
+                      />
+                    </div>
+                )}
+              </div>
+
+              {/* Additional Images Upload */}
+              <div>
+                <ImageUpload
+                    label="Additional Project Images"
+                    onImageSelect={handleImagesSelect}
+                    acceptMultiple={true}
+                    maxFiles={5}
+                    className="mb-4"
+                />
+                {!selectedImages.length && formData.images && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-400 mb-2">Current images:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.images.split(',').filter(Boolean).map((img, index) => (
+                            <img
+                                key={index}
+                                src={img.trim()}
+                                alt={`Project image ${index + 1}`}
+                                className="w-20 h-20 rounded-md object-cover"
+                            />
+                        ))}
+                      </div>
+                    </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-2">
+                    Live URL
+                  </label>
+                  <input
                       id="url"
                       name="url"
-                      type="text"
+                      type="url"
                       value={formData.url}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="github_url" className="block text-sm font-medium text-gray-300 mb-1">
-                      GitHub URL
-                    </label>
-                    <input
+                      className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                      placeholder="https://example.com"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="github_url" className="block text-sm font-medium text-gray-300 mb-2">
+                    GitHub URL
+                  </label>
+                  <input
                       id="github_url"
                       name="github_url"
-                      type="text"
+                      type="url"
                       value={formData.github_url}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
+                      className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                      placeholder="https://github.com/username/repo"
+                  />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="order_index" className="block text-sm font-medium text-gray-300 mb-1">
-                      Display Order
-                    </label>
-                    <input
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="order_index" className="block text-sm font-medium text-gray-300 mb-2">
+                    Display Order
+                  </label>
+                  <input
                       id="order_index"
                       name="order_index"
                       type="number"
                       min="0"
                       value={formData.order_index}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-accent focus:border-accent"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center h-full pt-6">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
+                      className="w-full px-4 py-3 bg-secondary text-white border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <label htmlFor="featured" className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                        id="featured"
                         name="featured"
+                        type="checkbox"
                         checked={formData.featured}
                         onChange={handleInputChange}
-                        className="w-4 h-4 text-accent bg-secondary border-gray-700 rounded focus:ring-accent"
-                      />
-                      <span className="ml-2 text-sm text-gray-300">Featured Project</span>
-                    </label>
-                  </div>
+                        className="w-5 h-5 text-accent bg-secondary border-gray-600 rounded focus:ring-accent focus:ring-2"
+                    />
+                    <span className="text-gray-300 font-medium">Featured Project</span>
+                  </label>
                 </div>
-                
-                <div className="flex justify-end space-x-4 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="ghost"
-                    onClick={() => {
-                      setIsCreating(false);
-                      setIsEditing(false);
-                      setSelectedProject(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="gradient">
-                    {isCreating ? 'Create Project' : 'Save Changes'}
-                  </Button>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="px-6 py-3 bg-accent text-primary rounded-md hover:bg-accent/80 transition-colors disabled:opacity-50 font-medium"
+                >
+                  {isLoading ? 'Saving...' : (editProject ? 'Update Project' : 'Add Project')}
+                </button>
+
+                {editProject && (
+                    <button
+                        type="button"
+                        onClick={resetForm}
+                        className="px-6 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                )}
+              </div>
+            </form>
+          </motion.div>
+
+          {/* Projects List */}
+          <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-secondary/50 backdrop-blur-sm p-6 rounded-lg border border-gray-700"
+          >
+            <h2 className="text-2xl font-bold text-white mb-6">Existing Projects</h2>
+
+            {isLoading && projects.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+                  <p className="text-gray-400 mt-4">Loading projects...</p>
                 </div>
-              </form>
+            ) : projects.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">No projects found. Add your first project above!</p>
+                </div>
+            ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {projects.map((project) => (
+                      <motion.div
+                          key={project.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="bg-primary/30 rounded-lg border border-gray-700 overflow-hidden hover:border-accent/50 transition-colors"
+                      >
+                        {/* Project Thumbnail */}
+                        {project.thumbnail && (
+                            <div className="aspect-video overflow-hidden">
+                              <img
+                                  src={project.thumbnail}
+                                  alt={project.title}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                        )}
+
+                        <div className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="text-lg font-semibold text-white truncate">{project.title}</h3>
+                            {project.featured === 1 && (
+                                <span className="px-2 py-1 text-xs bg-accent/20 text-accent rounded-full border border-accent/30">
+                          Featured
+                        </span>
+                            )}
+                          </div>
+
+                          <p className="text-gray-300 text-sm line-clamp-3 mb-3">
+                            {project.description}
+                          </p>
+
+                          {project.tags && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {project.tags.split(',').slice(0, 3).map((tag, index) => (
+                                    <span
+                                        key={index}
+                                        className="px-2 py-1 text-xs bg-secondary text-gray-300 rounded"
+                                    >
+                            {tag.trim()}
+                          </span>
+                                ))}
+                                {project.tags.split(',').length > 3 && (
+                                    <span className="px-2 py-1 text-xs bg-secondary text-gray-400 rounded">
+                            +{project.tags.split(',').length - 3}
+                          </span>
+                                )}
+                              </div>
+                          )}
+
+                          <div className="flex justify-between items-center">
+                            <div className="flex space-x-2">
+                              {project.url && (
+                                  <a
+                                      href={project.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-accent hover:text-accent/80 text-sm"
+                                  >
+                                    Live Demo
+                                  </a>
+                              )}
+                              {project.github_url && (
+                                  <a
+                                      href={project.github_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-accent hover:text-accent/80 text-sm"
+                                  >
+                                    GitHub
+                                  </a>
+                              )}
+                            </div>
+
+                            <div className="flex space-x-2">
+                              <button
+                                  onClick={() => handleEdit(project)}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                  onClick={() => handleDelete(project.id, project.title)}
+                                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                  ))}
+                </div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
-    </motion.div>
   );
 };
 

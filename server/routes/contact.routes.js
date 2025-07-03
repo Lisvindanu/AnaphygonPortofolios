@@ -5,7 +5,7 @@ const router = express.Router();
 
 // Setup SMTP transporter
 const createTransporter = () => {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({  // createTransport BUKAN createTransporter
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: process.env.SMTP_PORT || 587,
         secure: false, // true for 465, false for other ports
@@ -79,7 +79,7 @@ router.post('/send', async (req, res) => {
           
           <div style="margin-top: 30px; padding: 15px; background: #EFF6FF; border-radius: 8px; font-size: 14px;">
             <p style="margin: 0;">
-              📧 Email: Anaphygon@protonmail.com<br/>
+              📧 Email: ${process.env.SMTP_USER}<br/>
               🌐 Portfolio: <a href="http://localhost:3000" style="color: #4F46E5;">Portfolio Website</a>
             </p>
           </div>

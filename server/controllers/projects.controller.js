@@ -1,5 +1,6 @@
 // server/controllers/projects.controller.js
-const db = require('../config/db');
+const db = require('../config/database');
+
 
 exports.getAllProjects = async (req, res) => {
   try {

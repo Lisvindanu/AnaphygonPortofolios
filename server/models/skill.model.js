@@ -1,5 +1,6 @@
 // server/models/skill.model.js
-const db = require('../config/db');
+const db = require('../config/database');
+
 
 class Skill {
   static async getAll() {

@@ -1,5 +1,6 @@
 // server/models/project.model.js
-const db = require('../config/db');
+const db = require('../config/database');
+
 
 class Project {
   static async getAll() {

@@ -1,66 +1,78 @@
-// src/pages/Home.jsx
-import React, { useEffect, useState } from 'react';
+// src/pages/Home.jsx - Updated with CV Download Section
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import Background from '../components/three/Background';
-import Button from '../components/common/Button';
 import Hero from '../components/home/Hero';
 import About from '../components/home/About';
-import Skills from '../components/home/Skills';
 import Projects from '../components/home/Projects';
+import Skills from '../components/home/Skills';
 import Contact from '../components/home/Contact';
-import { getAllContent, getAllProjects, getAllSkills } from '../services/api';
+import CVDownload from '../components/cv/CVDownload';
+import { getContentBySection } from '../services/api';
 
 const Home = () => {
-  const [content, setContent] = useState({});
-  const [projects, setProjects] = useState([]);
-  const [skills, setSkills] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState({
+    hero: [],
+    about: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchContent = async () => {
       try {
-        const [contentData, projectsData, skillsData] = await Promise.all([
-          getAllContent(),
-          getAllProjects(),
-          getAllSkills()
+        const [heroData, aboutData] = await Promise.all([
+          getContentBySection('hero'),
+          getContentBySection('about')
         ]);
-        
-        setContent(contentData);
-        setProjects(projectsData);
-        setSkills(skillsData);
+
+        setContent({
+          hero: heroData,
+          about: aboutData
+        });
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching content:', error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-    
-    fetchData();
+
+    fetchContent();
   }, []);
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-glow h-24 w-24 rounded-full bg-accent mb-4 mx-auto"></div>
-          <p className="text-xl">Loading...</p>
+        <div className="min-h-screen bg-primary flex items-center justify-center">
+          <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center"
+          >
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent mx-auto"></div>
+            <p className="text-gray-400 mt-4">Loading...</p>
+          </motion.div>
         </div>
-      </div>
     );
   }
 
   return (
-    <>
-      <Background />
-      <div className="pt-20">
-        <Hero content={content.hero || []} />
-        <About content={content.about || []} />
-        <Skills skills={skills} />
-        <Projects projects={projects.slice(0, 4)} />
-        <Contact content={content.contact || []} />
+      <div className="min-h-screen bg-primary">
+        {/* Hero Section */}
+        <Hero content={content.hero} />
+
+        {/* About Section */}
+        <About content={content.about} />
+
+        {/* Skills Section */}
+        <Skills />
+
+        {/* Projects Section */}
+        <Projects />
+
+        {/* CV Download Section */}
+        <CVDownload />
+
+        {/* Contact Section */}
+        <Contact />
       </div>
-    </>
   );
 };
 
