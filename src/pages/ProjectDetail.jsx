@@ -1,11 +1,12 @@
+// src/pages/ProjectDetail.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Background from '../components/three/Background';
 import { getProjectById } from '../services/api';
 
-// Definisikan base URL untuk API dan aset
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Definisikan base URL untuk ASET (tanpa /api)
+const ASSET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 // Helper function untuk menentukan URL gambar yang benar
 const getImageUrl = (path) => {
@@ -15,7 +16,8 @@ const getImageUrl = (path) => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  return `${API_URL}${path}`;
+  // Gunakan ASSET_URL, bukan API_URL
+  return `${ASSET_URL}${path}`;
 };
 
 

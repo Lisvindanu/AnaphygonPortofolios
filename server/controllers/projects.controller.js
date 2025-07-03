@@ -29,7 +29,7 @@ exports.createProject = async (req, res) => {
   try {
     const { title, description, tags, url, github_url, featured, order_index } = req.body;
 
-    // req.files sekarang adalah objek: { thumbnail: [file], images: [file1, file2] }
+    // req.files sekarang adalah objek: { thumbnail: [file], images: [file1, file2, ...] }
     const thumbnail = req.files && req.files.thumbnail ? `/uploads/${req.files.thumbnail[0].filename}` : null;
     const images = req.files && req.files.images ? req.files.images.map(file => `/uploads/${file.filename}`).join(',') : null;
 
@@ -78,6 +78,8 @@ exports.updateProject = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Anda mungkin ingin menambahkan logika untuk menghapus file dari folder 'uploads' di sini
 
     await db.execute('DELETE FROM projects WHERE id = ?', [id]);
 

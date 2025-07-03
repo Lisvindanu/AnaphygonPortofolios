@@ -1,7 +1,7 @@
+// server/routes/projects.routes.js
 const express = require('express');
 const projectsController = require('../controllers/projects.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
-// Import instance multer
 const upload = require('../middleware/upload.middleware');
 
 const router = express.Router();

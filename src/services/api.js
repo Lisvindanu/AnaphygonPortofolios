@@ -1,16 +1,12 @@
 // src/services/api.js
 import axios from 'axios';
 
-// Use the public domain for all requests
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 // const API_URL = 'https://api.vinmedia.my.id/api';
-const API_URL = 'http://localhost:5000/api';
 
-// Create axios instance
+// Create axios instance WITHOUT default Content-Type
 const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: API_URL
 });
 
 // Add token to requests
@@ -22,7 +18,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Content API
+// --- Content API ---
 export const getAllContent = async () => {
   const response = await api.get('/content');
   return response.data;
@@ -38,7 +34,7 @@ export const updateContent = async (id, data) => {
   return response.data;
 };
 
-// Projects API
+// --- Projects API ---
 export const getAllProjects = async () => {
   const response = await api.get('/projects');
   return response.data;
@@ -49,6 +45,7 @@ export const getProjectById = async (id) => {
   return response.data;
 };
 
+// For FormData, axios will set the correct headers automatically
 export const createProject = async (data) => {
   const response = await api.post('/projects', data);
   return response.data;
@@ -64,7 +61,7 @@ export const deleteProject = async (id) => {
   return response.data;
 };
 
-// Skills API
+// --- Skills API ---
 export const getAllSkills = async () => {
   const response = await api.get('/skills');
   return response.data;

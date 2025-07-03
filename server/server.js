@@ -31,8 +31,9 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sajikan file statis dari direktori uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// --- INI BAGIAN YANG DIPERBAIKI ---
+// Sajikan file statis dari direktori 'uploads' di root proyek
+app.use('/uploads', express.static('uploads'));
 
 // Endpoint Health Check
 app.get('/api/health', (req, res) => {
@@ -51,8 +52,6 @@ app.use('/api/cv', cvRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
 
-// --- START of changes ---
-
 // Sajikan file statis dari React build hanya di environment produksi
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../build')));
@@ -62,8 +61,6 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '../build', 'index.html'));
   });
 }
-
-// --- END of changes ---
 
 // Global Error Handler
 app.use((error, req, res, next) => {

@@ -6,8 +6,8 @@ import Card from '../components/common/Card';
 import Background from '../components/three/Background';
 import { Link } from 'react-router-dom';
 
-// Definisikan base URL untuk API dan aset
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Definisikan base URL untuk ASET (tanpa /api)
+const ASSET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 // Helper function untuk menentukan URL gambar yang benar
 const getImageUrl = (path) => {
@@ -17,7 +17,7 @@ const getImageUrl = (path) => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  return `${API_URL}${path}`;
+  return `${ASSET_URL}${path}`;
 };
 
 
