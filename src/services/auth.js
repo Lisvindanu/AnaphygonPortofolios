@@ -2,7 +2,8 @@
 import axios from 'axios';
 
 // Use the public domain for all requests
-const API_URL = 'https://api.vinmedia.my.id/api';
+// const API_URL = 'https://api.vinmedia.my.id/api';
+const API_URL = 'http://localhost:5000/api';
 
 // Login user
 export const login = async (username, password) => {
